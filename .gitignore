@@ -1,0 +1,24 @@
+
+__pycache__
+**/migrations/*
+!**/migrations/__init__.py
+
+/media
+collectedstatic
+*.log
+log.txt
+
+# local env files
+env.py
+hh_settings.py
+
+# Editor directories and files
+.idea
+.vscode
+.VSCodeCounter
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+node_modules
