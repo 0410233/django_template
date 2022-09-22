@@ -5,6 +5,7 @@ from server.utils import choices_to_str
 # Create your models here.
 
 class Msg(models.Model):
+    """消息"""
     
     class Type(models.IntegerChoices):
         SYSTEM  = 0, '系统'
@@ -13,11 +14,11 @@ class Msg(models.Model):
     class LinkType(models.IntegerChoices):
         OTHER = 0, '其他'
 
-    user = models.ForeignKey('user.User', on_delete=models.CASCADE, verbose_name='用户id', blank=True, null=True)
+    type = models.IntegerField('类型', default=Type.SYSTEM, choices=Type.choices, help_text=choices_to_str(Type))
     title = models.CharField('标题', blank=True, default='', max_length=50)
     content = models.TextField('内容')
+    user = models.ForeignKey('user.User', on_delete=models.CASCADE, verbose_name='用户id', blank=True, null=True)
 
-    type = models.IntegerField('类型', default=Type.SYSTEM, choices=Type.choices, help_text=choices_to_str(Type))
     link_type = models.SmallIntegerField('链接类型', blank=True, default=0, choices=LinkType.choices, help_text=choices_to_str(LinkType))
     link = models.CharField('链接', max_length=200, blank=True, null=True)
 
@@ -34,6 +35,8 @@ class Msg(models.Model):
 
 
 class MsgRead(models.Model):
+    """消息已读记录"""
+
     msg = models.ForeignKey('Msg', on_delete=models.CASCADE, verbose_name='消息id')
     user = models.ForeignKey('user.User', on_delete=models.CASCADE, verbose_name='用户id')
 
