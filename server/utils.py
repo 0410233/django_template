@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta
+from html.parser import HTMLParser
+from io import StringIO
 from uuid import uuid4
-from datetime import datetime, date, time, timedelta
 
 from django.conf import settings
 from django.utils.html import format_html
@@ -33,15 +35,26 @@ def custom_exception_handler(exc, context):
     return response
 
 
+DEFAULT_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: '业务异常，具体message提示。',
+    status.HTTP_401_UNAUTHORIZED: '系身份验证失败（token过期或非法账号）',
+    status.HTTP_403_FORBIDDEN: '没权限',
+    status.HTTP_404_NOT_FOUND: '请求路径不存在',
+    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: '客户发送的请求大小超过了2MB限制。',
+    status.HTTP_500_INTERNAL_SERVER_ERROR: '系统内部异常',
+    status.HTTP_502_BAD_GATEWAY: '网关异常'
+}
 
-def get_file_path(instance, filename: str):
-    ext = filename.split('.').pop()
+
+def get_file_path(instance, filename):
+    ext = filename.split('.')[-1]
+    #日期目录和 随机文件名
+    now = timezone.localtime()
     filename = '{}.{}'.format(uuid4().hex, ext)
-    now = timezone.localtime(timezone=timezone.get_default_timezone())
-    return "uploads/%d/%02d/%02d/%s"%(now.year, now.month, now.day, filename)
+    return "uploads/{0}/{1}/{2}/{3}".format(now.year, now.month, now.day, filename)
 
 
-def generate_order_sn(prefix, suffix):
+def generate_order_number(prefix, suffix):
     """生成订单号"""
     import random
 
@@ -49,7 +62,7 @@ def generate_order_sn(prefix, suffix):
     suffix = str(suffix)[-2:]
 
     # 当前日期时间
-    local_time = timezone.localtime().strftime('%Y%m%d%H%M%S')[-12:]
+    local_time = timezone.localtime().strftime('%Y%m%d%H%M%S')[2:]
 
     # 前缀（后2位）+ 下单时间的年月日12 + 后缀（后2位）+ 随机数4位
     result = prefix + local_time + suffix + str(random.randint(1000, 9999))
@@ -65,33 +78,70 @@ def choices_to_str(choices):
     return ','.join(keyvalues)
 
 
+class HTMLStripper(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.strict = False
+        self.convert_charrefs= True
+        self.text = StringIO()
+
+    def handle_data(self, d):
+        self.text.write(d)
+
+    def get_data(self):
+        return self.text.getvalue()
+
+
+def strip_tags(html):
+    s = HTMLStripper()
+    s.feed(html)
+    return s.get_data()
+
+
 def admin_text_view(content, width=200):
     if content is None:
         return '-'
     content = str(content)
     if len(content) < 1:
         return '-'
-        
+    
+    content = strip_tags(content)
+    
     import html
     content = html.escape(content)
     return format_html(
-        '<span style="display:inline-block;max-width:{}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{}">{}</span>',
-        str(width),
-        content,
-        content,
+        '<span style="display:inline-block;max-width:{width}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{content}">{content}</span>',
+        width=str(width),
+        content=content,
     )
 
 
-def admin_image_view(image):
-    if image is None or image == '':
+def admin_image_view(image_path):
+    if image_path is None or image_path == '':
         return '-'
-    url = settings.MEDIA_URL + image
+    image_url = settings.MEDIA_URL + image_path
     return format_html(
-        '<a href="{}" target="_top" title="{}" style="display:inline-block;width:50px;height:50px;box-sizing:border-box;padding:1px;border:1px solid #eee;border-radius:2px;background:#fff;"><img style="width:100%;height:100%;object-fit:contain;" src="{}"></a>',
-        url,
-        image,
-        url,
+        '<a href="{image_url}" target="_top" title="{image_path}" style="display:inline-block;width:50px;height:50px;box-sizing:border-box;padding:1px;border:1px solid #eee;border-radius:2px;background:#fff;"><img style="width:100%;height:100%;object-fit:contain;" src="{image_url}"></a>',
+        image_path=image_path,
+        image_url=image_url,
     )
+
+
+def admin_gallery_view(*images, columns=3):
+    inner = ''
+    width = 0
+    for image in images:
+        if image:
+            url = settings.MEDIA_URL + image
+            inner += '<a href="{}" target="_blank" title="{}" style="width:50px;height:50px;flex:none;box-sizing:border-box;padding:1px;margin:1px;border:1px solid #eee;border-radius:2px;background:#fff;"><img style="width:100%;height:100%;object-fit:contain;" src="{}"></a>'.format(url, image, url)
+            if width < 52*columns:
+                width += 52
+    if width > 0:
+        html = '<div style="display:inline-flex;flex-wrap:wrap;width:%dpx;">%s</div>'%(width, inner)
+        return format_html(html)
+    return '-'
+
 
 def admin_file_view(file: str, link_text=None):
     if file is None or file == '':
@@ -101,10 +151,9 @@ def admin_file_view(file: str, link_text=None):
         link_text = file.split('/').pop()
     return format_html(
         '<a href="{}" target="_top" title="{}">{}</a>',
-        url,
-        file,
-        link_text,
+        url, file, link_text,
     )
+
 
 def admin_media_view(media: str, link_text=None):
     if media is None or media == '':
@@ -116,19 +165,10 @@ def admin_media_view(media: str, link_text=None):
         return admin_file_view(media, link_text)
 
 
-DEFAULT_RESPONSES = {
-    status.HTTP_400_BAD_REQUEST: '业务异常，具体message提示。',
-    status.HTTP_401_UNAUTHORIZED: '系身份验证失败（token过期或非法账号）',
-    status.HTTP_403_FORBIDDEN: '没权限',
-    status.HTTP_404_NOT_FOUND: '请求路径不存在',
-    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: '客户发送的请求大小超过了2MB限制。',
-    status.HTTP_500_INTERNAL_SERVER_ERROR: '系统内部异常',
-    status.HTTP_502_BAD_GATEWAY: '网关异常'
-}
-
-
 def get_time_range(now=None, scope='month') -> tuple[datetime, datetime]:
     """获取时间范围"""
+    
+    from datetime import date, time
 
     tz = timezone.get_current_timezone()
     if isinstance(now, datetime) and now.tzinfo is not None:
@@ -147,7 +187,7 @@ def get_time_range(now=None, scope='month') -> tuple[datetime, datetime]:
     if scope == 'month':
         import calendar
         _, last_day = calendar.monthrange(now.year, now.month)
-        start_time = timezone.datetime(
+        start_time = datetime(
             year=now.year, month=now.month, day=1,
             hour=0, minute=0, second=0, microsecond=0,
             tzinfo=tz
@@ -159,7 +199,7 @@ def get_time_range(now=None, scope='month') -> tuple[datetime, datetime]:
 
     # 天
     elif scope == 'day':
-        start_time = timezone.datetime(
+        start_time = datetime(
             year=now.year, month=now.month, day=now.day,
             hour=0, minute=0, second=0, microsecond=0,
             tzinfo=tz
@@ -172,7 +212,7 @@ def get_time_range(now=None, scope='month') -> tuple[datetime, datetime]:
     # 周
     elif scope == 'week':
         weekday = now.weekday()
-        start_time = timezone.datetime(
+        start_time = datetime(
             year=now.year, month=now.month, day=now.day,
             hour=0, minute=0, second=0, microsecond=0,
             tzinfo=tz
@@ -186,12 +226,12 @@ def get_time_range(now=None, scope='month') -> tuple[datetime, datetime]:
         
     # 年
     elif scope == 'year':
-        start_time = timezone.datetime(
+        start_time = datetime(
             year=now.year, month=1, day=1,
             hour=0, minute=0, second=0, microsecond=0,
             tzinfo=tz
         )
-        end_time = timezone.datetime(
+        end_time = datetime(
             year=now.year, month=12, day=31,
             hour=23, minute=59, second=59, microsecond=999999,
             tzinfo=tz

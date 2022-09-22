@@ -19,7 +19,7 @@ from drf_yasg import openapi
 from server.utils import DEFAULT_RESPONSES
 from user.models import User
 from .serializers import MsgSerializer
-from .models import Msg, MsgReaded
+from .models import *
 
 
 # Create your views here.
@@ -48,7 +48,7 @@ class MsgList(mixins.ListModelMixin, generics.GenericAPIView):
         res = self.list(request, *args, **kwargs)
 
         for detail in res.data['results']:
-            _, created = MsgReaded.objects.get_or_create(
+            _, created = MsgRead.objects.get_or_create(
                 msg_id=detail['msg_id'],
                 user=request.user,
             )
@@ -59,7 +59,7 @@ class MsgList(mixins.ListModelMixin, generics.GenericAPIView):
         return res
 
 
-class TipsInfo(views.APIView):
+class MsgTips(views.APIView):
     """消息数"""
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -74,7 +74,6 @@ class TipsInfo(views.APIView):
                 properties={
                     'msg_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='合计新消息数'),
                     'sys_msg_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='系统新消息数'),
-                    'order_msg_count': openapi.Schema(type=openapi.TYPE_INTEGER, description='咨询新消息数'),
                 }
             ))
         } | DEFAULT_RESPONSES,
@@ -86,7 +85,6 @@ class TipsInfo(views.APIView):
         data = {
             'msg_count': 0,
             'sys_msg_count': 0,
-            'order_msg_count': 0,
         }
 
         # 总消息数
@@ -97,30 +95,23 @@ class TipsInfo(views.APIView):
             .values('type')
             .annotate(total=Count('*'))
         )
-        # print(queryset.query)
 
-        # 类型 0系统1咨询
+        # 类型 0系统
         for rec in queryset:
-            if rec['type'] == 0:
+            if rec['type'] == Msg.Type.SYSTEM:
                 data['sys_msg_count'] += rec['total']
-            elif rec['type'] == 1:
-                data['order_msg_count'] += rec['total']
             data['msg_count'] += rec['total']
 
         # 已读消息数
-        queryset_read = (MsgReaded.objects
-            .filter(user=user)
-            .values('msg__type')
-            .annotate(type=F('msg__type'), total=Count('*'))
+        queryset_read = (
+            MsgRead.objects.filter(user=user).values('msg__type').annotate(type=F('msg__type'), total=Count('*'))
         )
         # print(queryset_read.query)
         
-        # 类型 0系统1咨询
+        # 类型 0系统
         for rec in queryset_read:
-            if rec['type'] == 0:
+            if rec['type'] == Msg.Type.SYSTEM:
                 data['sys_msg_count'] -= rec['total']
-            elif rec['type'] == 1:
-                data['order_msg_count'] -= rec['total']
             data['msg_count'] -= rec['total']
 
         return Response(data)

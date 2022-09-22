@@ -6,7 +6,7 @@ urlpatterns = [
     # 消息列表
     path('list/<int:type>/', views.MsgList.as_view(), name='msg-list'),
     # 新消息数
-    path('tips/', views.TipsInfo.as_view(), name='tips-info'),
+    path('tips/', views.MsgTips.as_view(), name='msg-tips'),
 ]
 
 app_name = 'msg'

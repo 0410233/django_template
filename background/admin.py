@@ -1,12 +1,12 @@
 from django.contrib import admin
 
-from . import models
+from .models import *
 from user.admin import BaseAdmin
 
 # Register your models here.
 
-@admin.register(models.Config)
-class ConfigAdmin(BaseAdmin):
+@admin.register(UserSetting)
+class UserSettingAdmin(BaseAdmin):
 
     list_filter = ('group', 'scope')
     list_display = ('name', 'value', 'display', 'group', 'scope')
