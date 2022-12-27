@@ -133,6 +133,8 @@ STATICFILES_DIRS = (
     SERVER_DIR / 'static',
 )
 
+STATIC_ROOT = BASE_DIR / 'collectedstatic'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = SERVER_DIR / 'media'
 

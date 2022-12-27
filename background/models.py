@@ -28,20 +28,15 @@ from server.utils import choices_to_str
 
 
 class UserSetting(models.Model):
-    """全局配置"""
+    """用户配置"""
 
     class Group(models.IntegerChoices):
-        DEFAULT = 0, '未分组'
-        RANKING = 1, '排行榜'
-        SIGNUP = 2, '签到'
-        REWARDS_CREDIT = 3, '研学分奖励'
-        REWARDS_MONEY = 4, '研学币奖励'
-        HEAT_RULE = 5, '热度值计算规则'
+        OTHER = 0, '其他'
     
     key = models.CharField('key', max_length=50, unique=True)
     value = models.TextField('value', blank=True, null=True)
     name = models.CharField('名称', max_length=50)
-    group = models.SmallIntegerField('分组', blank=True, default=Group.DEFAULT, choices=Group.choices, help_text=choices_to_str(Group))
+    group = models.SmallIntegerField('分组', blank=True, default=Group.OTHER, choices=Group.choices, help_text=choices_to_str(Group))
     scope = models.SmallIntegerField('使用范围', blank=True, default=0, choices=[(0,'全部'),(1,'仅后端')], help_text='仅后端使用的配置项不会被前端获取到')
     display = models.IntegerField('显示顺序', blank=True, default=0, help_text='大的排前面')
     
@@ -49,7 +44,7 @@ class UserSetting(models.Model):
         return str(self.name)
 
     class Meta:
-        verbose_name = '全局配置'
+        verbose_name = '用户配置'
         verbose_name_plural = verbose_name
         ordering = ('-display', 'id')
         db_table = 'user_settings'

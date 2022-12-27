@@ -8,7 +8,6 @@ from django.conf import settings
 from django.http import Http404, HttpRequest, HttpResponseBadRequest
 
 from rest_framework import mixins, generics, status, permissions, views
-from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ParseError
 from rest_framework.request import Request
 from rest_framework.response import Response

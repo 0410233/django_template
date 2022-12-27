@@ -258,18 +258,21 @@ class UserDetail(mixins.RetrieveModelMixin, mixins.CreateModelMixin, generics.Li
             try:
                 user_info = json.loads(wx_user_info)
 
+                user.name = user_info['nickName']
+
                 # 下载图片到本地
                 avatar = user_info['avatarUrl']
-                filename = get_file_path(None, avatar)
+                avatar_name = 'avatar.jpg'
+                _, ext = os.path.splitext(avatar)
+                if ext and ext.lower() in ('.jpg', '.jpeg', '.png', '.gif'):
+                    avatar_name = 'avatar'+ext
+                filename = get_file_path(None, avatar_name)
 
-                user.name = user_info['nickName']
-                # user.sex = user_info['gender']
-                user.save()
-
-                if os.path.exists(settings.MEDIA_ROOT + '/'.join((filename.split('/')[:-1]))) is False:
-                    os.makedirs(settings.MEDIA_ROOT + '/'.join((filename.split('/')[:-1])))
-
+                avatar_path = settings.MEDIA_ROOT + '/'.join((filename.split('/')[:-1]))
+                if os.path.exists(avatar_path) is False:
+                    os.makedirs(avatar_path)
                 urllib.request.urlretrieve(avatar, filename=settings.MEDIA_ROOT + filename)
+                
                 user.avatar = filename
 
                 user.save()
